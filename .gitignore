@@ -1,0 +1,56 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+venv/
+env/
+
+# dotenv
+.env
+
+logs/
+
+# local settings
+*.local.json
+
+# Weights & Biases
+wandb/
+
+# Hydra outputs
+outputs/
+multirun/
+.hydra/
+
+# Model checkpoints
+checkpoints/
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# Datasets cache
+.cache/
+data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
