@@ -48,6 +48,7 @@ def load_base_model(model_name: str):
         torch_dtype=torch.bfloat16,
         device_map="auto",
     )
+    tokenizer.padding_side = "left"
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     model.eval()
@@ -80,6 +81,7 @@ def load_checkpoint(checkpoint_path: str):
             device_map="auto",
         )
 
+    tokenizer.padding_side = "left"
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     model.eval()
