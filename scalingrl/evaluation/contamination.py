@@ -150,20 +150,28 @@ class ContaminationEvaluator(BaseEvaluator):
                 batch["ground_truth"] if isinstance(batch["ground_truth"], list) else [batch["ground_truth"]]
             )
 
-            # Build truncated prefixes and reference suffixes
+            # Build truncated prefixes and reference suffixes.
+            # Advance cutoff to next word boundary to avoid splitting mid-word,
+            # matching the paper's truncation method.
             prefixes: list[str] = []
             suffixes: list[str] = []
             for q in questions:
-                split_point = int(len(q) * self.prefix_ratio)
-                prefixes.append(q[:split_point])
-                suffixes.append(q[split_point:])
+                cutoff = int(len(q) * self.prefix_ratio)
+                while cutoff < len(q) and q[cutoff] not in " \n,.!?)]}":
+                    cutoff += 1
+                prefixes.append(q[:cutoff].rstrip())
+                suffixes.append(q[cutoff:])
 
             # Generate (greedy, no template)
             completions = self.generate_batch(prefixes, temperature=0.0)
 
             for comp, suffix, gt in zip(completions, suffixes, ground_truths):
-                # ROUGE-L
-                rouge_l_scores.append(rouge_l_f1(suffix, comp))
+                # ROUGE-L — truncate completion to suffix word count to
+                # match the paper's methodology (avoids precision penalty
+                # from the model generating beyond the suffix).
+                suffix_words = suffix.split()
+                comp_truncated = " ".join(comp.split()[: len(suffix_words)])
+                rouge_l_scores.append(rouge_l_f1(suffix, comp_truncated))
 
                 # Exact match (whitespace-normalized)
                 em = 1.0 if comp.strip() == suffix.strip() else 0.0

@@ -98,7 +98,7 @@ def evaluate_model_all_datasets(model, tokenizer, prefix_ratio, batch_size, max_
             model=model,
             tokenizer=tokenizer,
             batch_size=batch_size,
-            max_new_tokens=512,
+            max_new_tokens=4096,
             prefix_ratio=prefix_ratio,
             dataset_name=ds_name,
         )
