@@ -60,6 +60,9 @@ def rouge_l_f1(reference: str, hypothesis: str) -> float:
 # ---------------------------------------------------------------------------
 
 
+SUPPORTED_DATASETS = ("gsm8k", "math500")
+
+
 class ContaminationEvaluator(BaseEvaluator):
     """Evaluate data contamination via partial-prompt completion.
 
@@ -69,14 +72,23 @@ class ContaminationEvaluator(BaseEvaluator):
       3. Compares the generated continuation against the held-out suffix.
     """
 
-    def __init__(self, *args, prefix_ratio: float = 0.6, **kwargs):
+    def __init__(self, *args, prefix_ratio: float = 0.6, dataset_name: str = "gsm8k", **kwargs):
         super().__init__(*args, **kwargs)
         self.prefix_ratio = prefix_ratio
+        if dataset_name not in SUPPORTED_DATASETS:
+            raise ValueError(f"Unknown dataset {dataset_name!r}, must be one of {SUPPORTED_DATASETS}")
+        self.dataset_name = dataset_name
 
     # -- dataset loading ----------------------------------------------------
 
     def load_dataset(self) -> Dataset:
-        """Load GSM8K test split with full question text and ground truth."""
+        """Load test split with full question text and ground truth."""
+        if self.dataset_name == "gsm8k":
+            return self._load_gsm8k()
+        else:
+            return self._load_math500()
+
+    def _load_gsm8k(self) -> Dataset:
         dataset = load_dataset("openai/gsm8k", "main", split="test")
 
         def format_example(example):
@@ -93,6 +105,21 @@ class ContaminationEvaluator(BaseEvaluator):
             desc="Formatting GSM8K test set for contamination eval",
         )
 
+    def _load_math500(self) -> Dataset:
+        dataset = load_dataset("HuggingFaceH4/MATH-500", split="test")
+
+        def format_example(example):
+            return {
+                "query": example["problem"],
+                "ground_truth": example["answer"],
+            }
+
+        return dataset.map(
+            format_example,
+            remove_columns=dataset.column_names,
+            desc="Formatting MATH-500 test set for contamination eval",
+        )
+
     # -- evaluation ---------------------------------------------------------
 
     def evaluate(self, dataset: Dataset | None = None) -> dict[str, Any]:
@@ -104,7 +131,7 @@ class ContaminationEvaluator(BaseEvaluator):
             dataset = self.load_dataset()
 
         ratio_pct = int(self.prefix_ratio * 100)
-        print(f"Contamination eval on GSM8K test ({len(dataset)} problems)")
+        print(f"Contamination eval on {self.dataset_name} test ({len(dataset)} problems)")
         print(f"  prefix_ratio={ratio_pct}%, greedy decoding, no chat template")
 
         rouge_l_scores: list[float] = []

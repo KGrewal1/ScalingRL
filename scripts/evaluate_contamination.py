@@ -1,9 +1,11 @@
 """Evaluate data contamination across model families via partial-prompt completion.
 
 Implements the "completion @ 60%" metric from "Reasoning or Memorization?"
-(Wu et al. 2025). For each GSM8K test problem, truncate to 60% of its text,
+(Wu et al. 2025). For each test problem, truncate to 60% of its text,
 let the model greedily complete the rest (no chat template), and measure
 ROUGE-L, exact-match, and answer accuracy.
+
+Evaluates on both GSM8K and MATH-500 unconditionally.
 
 Usage:
     # Single base model
@@ -27,7 +29,7 @@ import torch
 from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from scalingrl.evaluation.contamination import ContaminationEvaluator
+from scalingrl.evaluation.contamination import SUPPORTED_DATASETS, ContaminationEvaluator
 from scalingrl.utils import set_seed
 
 MODEL_FAMILIES = {
@@ -88,19 +90,23 @@ def load_checkpoint(checkpoint_path: str):
     return model, tokenizer
 
 
-def evaluate_model(model, tokenizer, prefix_ratio, batch_size, max_samples):
-    """Run contamination evaluation on a single model."""
-    evaluator = ContaminationEvaluator(
-        model=model,
-        tokenizer=tokenizer,
-        batch_size=batch_size,
-        max_new_tokens=512,
-        prefix_ratio=prefix_ratio,
-    )
-    dataset = evaluator.load_dataset()
-    if max_samples is not None:
-        dataset = dataset.select(range(min(max_samples, len(dataset))))
-    return evaluator.evaluate(dataset)
+def evaluate_model_all_datasets(model, tokenizer, prefix_ratio, batch_size, max_samples):
+    """Run contamination evaluation on a single model across all datasets."""
+    results = {}
+    for ds_name in SUPPORTED_DATASETS:
+        evaluator = ContaminationEvaluator(
+            model=model,
+            tokenizer=tokenizer,
+            batch_size=batch_size,
+            max_new_tokens=512,
+            prefix_ratio=prefix_ratio,
+            dataset_name=ds_name,
+        )
+        dataset = evaluator.load_dataset()
+        if max_samples is not None:
+            dataset = dataset.select(range(min(max_samples, len(dataset))))
+        results[ds_name] = evaluator.evaluate(dataset)
+    return results
 
 
 def main():
@@ -137,9 +143,11 @@ def main():
             print(f"  {family}: {model_id}")
             print("=" * 60)
             model, tokenizer = load_base_model(model_id)
-            results = evaluate_model(model, tokenizer, args.prefix_ratio, args.batch_size, args.max_samples)
-            all_results[family] = results
-            # Free memory
+            ds_results = evaluate_model_all_datasets(
+                model, tokenizer, args.prefix_ratio, args.batch_size, args.max_samples
+            )
+            for ds_name, res in ds_results.items():
+                all_results[f"{family}/{ds_name}"] = res
             del model, tokenizer
             torch.cuda.empty_cache()
     else:
@@ -150,17 +158,18 @@ def main():
             model, tokenizer = load_checkpoint(args.checkpoint)
             label = args.checkpoint
 
-        results = evaluate_model(model, tokenizer, args.prefix_ratio, args.batch_size, args.max_samples)
-        all_results[label] = results
+        ds_results = evaluate_model_all_datasets(model, tokenizer, args.prefix_ratio, args.batch_size, args.max_samples)
+        for ds_name, res in ds_results.items():
+            all_results[f"{label}/{ds_name}"] = res
 
     # Summary table
     print("\n" + "=" * 60)
     print(f"  Contamination Summary (prefix={int(args.prefix_ratio * 100)}%)")
     print("=" * 60)
-    print(f"  {'Model':<25} {'ROUGE-L':>8} {'EM':>8} {'Ans Acc':>8}")
-    print("  " + "-" * 51)
+    print(f"  {'Model':<35} {'ROUGE-L':>8} {'EM':>8} {'Ans Acc':>8}")
+    print("  " + "-" * 61)
     for name, res in all_results.items():
-        print(f"  {name:<25} {res['rouge_l']:>7.2%} {res['em']:>7.2%} {res['answer_accuracy']:>7.2%}")
+        print(f"  {name:<35} {res['rouge_l']:>7.2%} {res['em']:>7.2%} {res['answer_accuracy']:>7.2%}")
     print("=" * 60)
 
     if args.output_json:
