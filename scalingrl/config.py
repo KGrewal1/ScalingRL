@@ -18,8 +18,12 @@ class ModelConfig:
 class LoRAConfig:
     """LoRA configuration."""
 
+    adapter_type: str = "lora"  # "lora", "lora_xs", or "tiny_lora"
     r: int = 8
     alpha: int = 16
+    # TinyLoRA-specific
+    tiny_lora_u: int = 1  # projection dimension (trainable params per tying group)
+    tiny_lora_n_tie: int | None = None  # weight tying factor (None = no tying)
     dropout: float = 0.05
     target_modules: list[str] = field(
         default_factory=lambda: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]

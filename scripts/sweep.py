@@ -16,7 +16,9 @@ MODEL_FAMILIES = {
 LORA_RANKS = [1, 2, 4, 8, 16, 64]
 
 
-def launch_experiment(family, model_name, lora_rank, dry_run=False):
+def launch_experiment(
+    family, model_name, lora_rank, adapter_type="lora", tiny_lora_u=None, tiny_lora_n_tie=None, dry_run=False
+):
     """Launch a single experiment."""
     cmd = [
         "python",
@@ -27,7 +29,13 @@ def launch_experiment(family, model_name, lora_rank, dry_run=False):
         family,
         "--lora-rank",
         str(lora_rank),
+        "--adapter-type",
+        adapter_type,
     ]
+    if tiny_lora_u is not None:
+        cmd.extend(["--tiny-lora-u", str(tiny_lora_u)])
+    if tiny_lora_n_tie is not None:
+        cmd.extend(["--tiny-lora-n-tie", str(tiny_lora_n_tie)])
 
     if dry_run:
         print(f"  Command: {' '.join(cmd)}")
@@ -58,6 +66,15 @@ def main():
         nargs="+",
         help="LoRA ranks (for custom)",
     )
+    parser.add_argument(
+        "--adapter-type",
+        type=str,
+        choices=["lora", "lora_xs", "tiny_lora"],
+        default="lora",
+        help="Adapter type (default: lora)",
+    )
+    parser.add_argument("--tiny-lora-u", type=int, default=None, help="TinyLoRA projection dimension")
+    parser.add_argument("--tiny-lora-n-tie", type=int, default=None, help="TinyLoRA weight tying factor")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -97,8 +114,16 @@ def main():
     # Launch experiments
     for i, (family, rank) in enumerate(experiments, 1):
         model_name = MODEL_FAMILIES[family]
-        print(f"[{i}/{len(experiments)}] {family} ({model_name}) | LoRA r={rank}")
-        launch_experiment(family, model_name, rank, dry_run=args.dry_run)
+        print(f"[{i}/{len(experiments)}] {family} ({model_name}) | {args.adapter_type} r={rank}")
+        launch_experiment(
+            family,
+            model_name,
+            rank,
+            adapter_type=args.adapter_type,
+            tiny_lora_u=args.tiny_lora_u,
+            tiny_lora_n_tie=args.tiny_lora_n_tie,
+            dry_run=args.dry_run,
+        )
         print()
 
 

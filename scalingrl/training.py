@@ -6,6 +6,7 @@ from transformers import PreTrainedModel, PreTrainedTokenizer
 from trl import GRPOConfig, GRPOTrainer
 
 from scalingrl.data import math_accuracy_reward
+from scalingrl.lora_xs import apply_lora_xs, apply_tiny_lora
 
 
 def create_grpo_config(
@@ -66,6 +67,9 @@ def create_grpo_trainer(
     train_dataset: Dataset,
     grpo_config: GRPOConfig,
     peft_config: LoraConfig | None = None,
+    adapter_type: str = "lora",
+    tiny_lora_u: int = 1,
+    tiny_lora_n_tie: int | None = None,
 ) -> GRPOTrainer:
     """Create GRPO trainer with built-in AdamW optimizer."""
 
@@ -87,6 +91,11 @@ def create_grpo_trainer(
         processing_class=tokenizer,
         peft_config=peft_config,
     )
+
+    if adapter_type == "lora_xs" and peft_config is not None:
+        apply_lora_xs(trainer.model, rank=peft_config.r)
+    elif adapter_type == "tiny_lora" and peft_config is not None:
+        apply_tiny_lora(trainer.model, rank=peft_config.r, u=tiny_lora_u, n_tie=tiny_lora_n_tie)
 
     print("GRPO Trainer created successfully")
     return trainer

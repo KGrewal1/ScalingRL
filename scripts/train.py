@@ -20,6 +20,9 @@ def parse_args():
 
     # LoRA
     parser.add_argument("--lora-rank", type=int, help="LoRA rank")
+    parser.add_argument("--adapter-type", type=str, choices=["lora", "lora_xs", "tiny_lora"], help="Adapter type")
+    parser.add_argument("--tiny-lora-u", type=int, help="TinyLoRA projection dimension (trainable params per group)")
+    parser.add_argument("--tiny-lora-n-tie", type=int, help="TinyLoRA weight tying factor")
 
     # Optimizer
     parser.add_argument("--lr", type=float, help="Learning rate")
@@ -55,6 +58,12 @@ def main():
         config.model.name = args.model_name
     if args.model_family:
         config.model.family = args.model_family
+    if args.adapter_type:
+        config.lora.adapter_type = args.adapter_type
+    if args.tiny_lora_u:
+        config.lora.tiny_lora_u = args.tiny_lora_u
+    if args.tiny_lora_n_tie:
+        config.lora.tiny_lora_n_tie = args.tiny_lora_n_tie
     if args.lora_rank:
         config.lora.r = args.lora_rank
         config.lora.alpha = args.lora_rank * 2
@@ -83,6 +92,7 @@ def main():
     print("=" * 60)
     print(f"Model: {config.model.name}")
     print(f"Family: {config.model.family}")
+    print(f"Adapter: {config.lora.adapter_type}")
     print(f"LoRA rank: {config.lora.r}")
     print(f"Optimizer: AdamW (lr={config.optimizer.lr})")
     print(f"Dataset: {config.data.dataset_name}")
@@ -93,6 +103,14 @@ def main():
     print(f"GRPO generations: {config.grpo.num_generations}")
     print("=" * 60 + "\n")
 
+    # Derive adapter label for run naming
+    if config.lora.adapter_type == "lora_xs":
+        adapter_label = "loraxs"
+    elif config.lora.adapter_type == "tiny_lora":
+        adapter_label = "tinylora"
+    else:
+        adapter_label = "lora"
+
     # Set random seed
     set_seed(config.project.seed)
 
@@ -101,7 +119,7 @@ def main():
 
     # Setup wandb
     if config.logging.use_wandb:
-        run_name = f"{config.model.family}_lora{config.lora.r}"
+        run_name = f"{config.model.family}_{adapter_label}{config.lora.r}"
         setup_wandb(
             project=config.logging.wandb_project,
             run_name=run_name,
@@ -167,7 +185,7 @@ def main():
     print("=" * 60)
 
     # Create GRPO config
-    run_name = f"{config.model.family}_lora{config.lora.r}"
+    run_name = f"{config.model.family}_{adapter_label}{config.lora.r}"
     output_dir = os.path.join(config.project.output_dir, run_name)
 
     grpo_config = create_grpo_config(
@@ -198,6 +216,9 @@ def main():
         train_dataset=train_dataset,
         grpo_config=grpo_config,
         peft_config=lora_config,
+        adapter_type=config.lora.adapter_type,
+        tiny_lora_u=config.lora.tiny_lora_u,
+        tiny_lora_n_tie=config.lora.tiny_lora_n_tie,
     )
 
     # Count trainable parameters
