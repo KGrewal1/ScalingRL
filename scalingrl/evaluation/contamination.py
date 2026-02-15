@@ -11,7 +11,6 @@ Metrics:
   - Answer Accuracy: fraction of completions that contain the correct answer
 """
 
-import re
 from typing import Any
 
 from datasets import Dataset, load_dataset
@@ -23,8 +22,8 @@ from scalingrl.evaluation.evaluator import BaseEvaluator
 # ---------------------------------------------------------------------------
 
 
-def _lcs_length(x: list[str], y: list[str]) -> int:
-    """Length of the longest common subsequence of two token lists."""
+def _lcs_length(x: list, y: list) -> int:
+    """Length of the longest common subsequence."""
     m, n = len(x), len(y)
     if m == 0 or n == 0:
         return 0
@@ -41,15 +40,13 @@ def _lcs_length(x: list[str], y: list[str]) -> int:
     return prev[n]
 
 
-def rouge_l_f1(reference: str, hypothesis: str) -> float:
-    """Compute ROUGE-L F1 between a reference and hypothesis string."""
-    ref_tokens = reference.split()
-    hyp_tokens = hypothesis.split()
-    if not ref_tokens or not hyp_tokens:
+def rouge_l_f1(reference: list[int], hypothesis: list[int]) -> float:
+    """Compute ROUGE-L F1 between reference and hypothesis token-ID sequences."""
+    if not reference or not hypothesis:
         return 0.0
-    lcs = _lcs_length(ref_tokens, hyp_tokens)
-    precision = lcs / len(hyp_tokens)
-    recall = lcs / len(ref_tokens)
+    lcs = _lcs_length(reference, hypothesis)
+    precision = lcs / len(hypothesis)
+    recall = lcs / len(reference)
     if precision + recall == 0:
         return 0.0
     return 2 * precision * recall / (precision + recall)
@@ -92,8 +89,7 @@ class ContaminationEvaluator(BaseEvaluator):
         dataset = load_dataset("openai/gsm8k", "main", split="test")
 
         def format_example(example):
-            match = re.search(r"####\s*(.+)", example["answer"])
-            ground_truth = match.group(1).strip() if match else ""
+            ground_truth = example["answer"].split("####")[-1].strip()
             return {
                 "query": example["question"],
                 "ground_truth": ground_truth,
@@ -154,27 +150,36 @@ class ContaminationEvaluator(BaseEvaluator):
             # Advance cutoff to next word boundary to avoid splitting mid-word,
             # matching the paper's truncation method.
             prefixes: list[str] = []
-            suffixes: list[str] = []
+            suffix_ids_list: list[list[int]] = []
             for q in questions:
                 cutoff = int(len(q) * self.prefix_ratio)
                 while cutoff < len(q) and q[cutoff] not in " \n,.!?)]}":
                     cutoff += 1
                 prefixes.append(q[:cutoff].rstrip())
-                suffixes.append(q[cutoff:])
+                suffix_ids_list.append(self.tokenizer.encode(q[cutoff:], add_special_tokens=False))
 
-            # Generate (greedy, no template)
+            # Cap generation at the longest suffix in this batch — we only
+            # need enough tokens to reconstruct the held-out portion.
+            max_suffix_tokens = max(len(ids) for ids in suffix_ids_list)
+
+            # Temporarily override max_new_tokens for this batch.
+            saved_max = self.max_new_tokens
+            self.max_new_tokens = max_suffix_tokens
             completions = self.generate_batch(prefixes, temperature=0.0)
+            self.max_new_tokens = saved_max
 
-            for comp, suffix, gt in zip(completions, suffixes, ground_truths):
-                # ROUGE-L — truncate completion to suffix word count to
-                # match the paper's methodology (avoids precision penalty
-                # from the model generating beyond the suffix).
-                suffix_words = suffix.split()
-                comp_truncated = " ".join(comp.split()[: len(suffix_words)])
-                rouge_l_scores.append(rouge_l_f1(suffix, comp_truncated))
+            for comp, suffix_ids, gt in zip(completions, suffix_ids_list, ground_truths):
+                comp_ids = self.tokenizer.encode(comp, add_special_tokens=False)
 
-                # Exact match (whitespace-normalized)
-                em = 1.0 if comp.strip() == suffix.strip() else 0.0
+                # Truncate completion to suffix length (avoids precision
+                # penalty from the model generating beyond the suffix).
+                comp_ids_trunc = comp_ids[: len(suffix_ids)]
+
+                # ROUGE-L on token IDs
+                rouge_l_scores.append(rouge_l_f1(suffix_ids, comp_ids_trunc))
+
+                # Exact match on truncated token sequences
+                em = 1.0 if comp_ids_trunc == suffix_ids else 0.0
                 em_scores.append(em)
 
                 # Answer accuracy — does the completion contain the correct
