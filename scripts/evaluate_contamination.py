@@ -90,10 +90,10 @@ def load_checkpoint(checkpoint_path: str):
     return model, tokenizer
 
 
-def evaluate_model_all_datasets(model, tokenizer, prefix_ratio, batch_size, max_samples):
-    """Run contamination evaluation on a single model across all datasets."""
+def evaluate_model_datasets(model, tokenizer, prefix_ratio, batch_size, max_samples, datasets=None):
+    """Run contamination evaluation on a single model across selected datasets."""
     results = {}
-    for ds_name in SUPPORTED_DATASETS:
+    for ds_name in datasets or SUPPORTED_DATASETS:
         evaluator = ContaminationEvaluator(
             model=model,
             tokenizer=tokenizer,
@@ -127,6 +127,14 @@ def main():
         default=0.6,
         help="Fraction of question text to keep as prompt (default: 0.6)",
     )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        nargs="+",
+        choices=list(SUPPORTED_DATASETS),
+        default=None,
+        help="Dataset(s) to evaluate (default: all)",
+    )
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--max-samples", type=int, default=None, help="Limit test set size")
     parser.add_argument("--seed", type=int, default=42)
@@ -143,8 +151,8 @@ def main():
             print(f"  {family}: {model_id}")
             print("=" * 60)
             model, tokenizer = load_base_model(model_id)
-            ds_results = evaluate_model_all_datasets(
-                model, tokenizer, args.prefix_ratio, args.batch_size, args.max_samples
+            ds_results = evaluate_model_datasets(
+                model, tokenizer, args.prefix_ratio, args.batch_size, args.max_samples, args.dataset
             )
             for ds_name, res in ds_results.items():
                 all_results[f"{family}/{ds_name}"] = res
@@ -158,7 +166,9 @@ def main():
             model, tokenizer = load_checkpoint(args.checkpoint)
             label = args.checkpoint
 
-        ds_results = evaluate_model_all_datasets(model, tokenizer, args.prefix_ratio, args.batch_size, args.max_samples)
+        ds_results = evaluate_model_datasets(
+            model, tokenizer, args.prefix_ratio, args.batch_size, args.max_samples, args.dataset
+        )
         for ds_name, res in ds_results.items():
             all_results[f"{label}/{ds_name}"] = res
 
