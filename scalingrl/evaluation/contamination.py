@@ -178,8 +178,11 @@ class ContaminationEvaluator(BaseEvaluator):
                 # ROUGE-L on token IDs
                 rouge_l_scores.append(rouge_l_f1(suffix_ids, comp_ids_trunc))
 
-                # Exact match on truncated token sequences
-                em = 1.0 if comp_ids_trunc == suffix_ids else 0.0
+                # Exact match — decode both to strings to avoid BPE
+                # context-sensitivity (leading space, merge order, etc.).
+                comp_text = self.tokenizer.decode(comp_ids_trunc, skip_special_tokens=True).strip()
+                suffix_text = self.tokenizer.decode(suffix_ids, skip_special_tokens=True).strip()
+                em = 1.0 if comp_text == suffix_text else 0.0
                 em_scores.append(em)
 
                 # Answer accuracy — does the completion contain the correct
