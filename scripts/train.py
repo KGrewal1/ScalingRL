@@ -38,6 +38,13 @@ def parse_args():
     # GRPO
     parser.add_argument("--num-generations", type=int, help="GRPO num generations")
 
+    # Speedup
+    parser.add_argument("--flash-attention", action="store_true", help="Use flash attention 2")
+    parser.add_argument("--use-vllm", action="store_true", help="Use vLLM for generation (colocate mode)")
+    parser.add_argument("--vllm-gpu-memory", type=float, default=0.3, help="vLLM GPU memory utilization (default: 0.3)")
+    parser.add_argument("--use-liger-kernel", action="store_true", help="Use Liger kernel fused ops")
+    parser.add_argument("--torch-compile", action="store_true", help="Use torch.compile")
+
     # Other
     parser.add_argument("--no-wandb", action="store_true", help="Disable wandb")
     parser.add_argument("--seed", type=int, help="Random seed")
@@ -85,6 +92,15 @@ def main():
         config.project.seed = args.seed
     if args.output_dir:
         config.project.output_dir = args.output_dir
+    if args.flash_attention:
+        config.speedup.flash_attention = True
+    if args.use_vllm:
+        config.speedup.use_vllm = True
+    config.speedup.vllm_gpu_memory_utilization = args.vllm_gpu_memory
+    if args.use_liger_kernel:
+        config.speedup.use_liger_kernel = True
+    if args.torch_compile:
+        config.speedup.torch_compile = True
 
     # Log configuration
     print("\n" + "=" * 60)
@@ -101,6 +117,7 @@ def main():
     print(f"Epochs: {config.training.num_train_epochs}")
     print(f"Batch size: {config.training.per_device_train_batch_size}")
     print(f"GRPO generations: {config.grpo.num_generations}")
+    print(f"Speedup: {config.speedup}")
     print("=" * 60 + "\n")
 
     # Derive adapter label for run naming
@@ -129,6 +146,7 @@ def main():
                 "optimizer": config.optimizer.__dict__,
                 "training": config.training.__dict__,
                 "grpo": config.grpo.__dict__,
+                "speedup": config.speedup.__dict__,
             },
             group=f"family_{config.model.family}",
             tags=[
@@ -159,7 +177,7 @@ def main():
         model_name=config.model.name,
         dtype=config.model.dtype,
         device_map=config.model.device_map,
-        use_flash_attention=config.model.flash_attention,
+        use_flash_attention=config.speedup.flash_attention,
     )
 
     print("\n" + "=" * 60)
@@ -207,6 +225,7 @@ def main():
         bf16=config.training.bf16,
         gradient_checkpointing=config.training.gradient_checkpointing,
         report_to="wandb" if config.logging.use_wandb else "none",
+        speedup=config.speedup,
     )
 
     # Create trainer

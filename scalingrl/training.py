@@ -5,6 +5,7 @@ from peft import LoraConfig
 from transformers import PreTrainedModel, PreTrainedTokenizer
 from trl import GRPOConfig, GRPOTrainer
 
+from scalingrl.config import SpeedupConfig
 from scalingrl.data import math_accuracy_reward
 from scalingrl.lora_xs import apply_lora_xs, apply_tiny_lora
 
@@ -28,8 +29,24 @@ def create_grpo_config(
     bf16: bool = True,
     gradient_checkpointing: bool = True,
     report_to: str = "wandb",
+    speedup: SpeedupConfig | None = None,
 ) -> GRPOConfig:
     """Create GRPOConfig."""
+    if speedup is None:
+        speedup = SpeedupConfig()
+
+    kwargs = {}
+    if speedup.use_vllm:
+        kwargs["use_vllm"] = True
+        kwargs["vllm_mode"] = "colocate"
+        kwargs["vllm_gpu_memory_utilization"] = speedup.vllm_gpu_memory_utilization
+    if speedup.use_liger_kernel:
+        kwargs["use_liger_kernel"] = True
+    if speedup.torch_compile:
+        kwargs["torch_compile"] = True
+        kwargs["torch_compile_backend"] = speedup.torch_compile_backend
+        kwargs["torch_compile_mode"] = speedup.torch_compile_mode
+
     grpo_config = GRPOConfig(
         output_dir=output_dir,
         num_train_epochs=num_train_epochs,
@@ -49,6 +66,7 @@ def create_grpo_config(
         gradient_checkpointing=gradient_checkpointing,
         report_to=report_to,
         run_name=run_name,
+        **kwargs,
     )
 
     print("GRPO Configuration:")
@@ -57,6 +75,17 @@ def create_grpo_config(
     print(f"  - num_generations: {num_generations}")
     print(f"  - max_completion_length: {max_completion_length}")
     print(f"  - beta (KL penalty): {beta}")
+
+    active = []
+    if speedup.flash_attention:
+        active.append("flash_attention")
+    if speedup.use_vllm:
+        active.append(f"vllm(colocate, mem={speedup.vllm_gpu_memory_utilization})")
+    if speedup.use_liger_kernel:
+        active.append("liger_kernel")
+    if speedup.torch_compile:
+        active.append(f"torch.compile({speedup.torch_compile_backend}/{speedup.torch_compile_mode})")
+    print(f"  - speedups: {', '.join(active) if active else 'none'}")
 
     return grpo_config
 

@@ -17,7 +17,14 @@ LORA_RANKS = [1, 2, 4, 8, 16, 64]
 
 
 def launch_experiment(
-    family, model_name, lora_rank, adapter_type="lora", tiny_lora_u=None, tiny_lora_n_tie=None, dry_run=False
+    family,
+    model_name,
+    lora_rank,
+    adapter_type="lora",
+    tiny_lora_u=None,
+    tiny_lora_n_tie=None,
+    speedup_flags=None,
+    dry_run=False,
 ):
     """Launch a single experiment."""
     cmd = [
@@ -36,6 +43,8 @@ def launch_experiment(
         cmd.extend(["--tiny-lora-u", str(tiny_lora_u)])
     if tiny_lora_n_tie is not None:
         cmd.extend(["--tiny-lora-n-tie", str(tiny_lora_n_tie)])
+    if speedup_flags:
+        cmd.extend(speedup_flags)
 
     if dry_run:
         print(f"  Command: {' '.join(cmd)}")
@@ -75,6 +84,12 @@ def main():
     )
     parser.add_argument("--tiny-lora-u", type=int, default=None, help="TinyLoRA projection dimension")
     parser.add_argument("--tiny-lora-n-tie", type=int, default=None, help="TinyLoRA weight tying factor")
+    # Speedup flags (forwarded to train.py)
+    parser.add_argument("--flash-attention", action="store_true", help="Use flash attention 2")
+    parser.add_argument("--use-vllm", action="store_true", help="Use vLLM for generation (colocate mode)")
+    parser.add_argument("--vllm-gpu-memory", type=float, default=0.3, help="vLLM GPU memory utilization")
+    parser.add_argument("--use-liger-kernel", action="store_true", help="Use Liger kernel fused ops")
+    parser.add_argument("--torch-compile", action="store_true", help="Use torch.compile")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -107,6 +122,19 @@ def main():
     else:
         parser.error(f"Unknown phase: {args.phase}")
 
+    # Build speedup flags to forward to train.py
+    speedup_flags = []
+    if args.flash_attention:
+        speedup_flags.append("--flash-attention")
+    if args.use_vllm:
+        speedup_flags.append("--use-vllm")
+    if args.vllm_gpu_memory != 0.3:
+        speedup_flags.extend(["--vllm-gpu-memory", str(args.vllm_gpu_memory)])
+    if args.use_liger_kernel:
+        speedup_flags.append("--use-liger-kernel")
+    if args.torch_compile:
+        speedup_flags.append("--torch-compile")
+
     # Generate experiments
     experiments = list(product(families, lora_ranks))
     print(f"Total experiments: {len(experiments)}\n")
@@ -122,6 +150,7 @@ def main():
             adapter_type=args.adapter_type,
             tiny_lora_u=args.tiny_lora_u,
             tiny_lora_n_tie=args.tiny_lora_n_tie,
+            speedup_flags=speedup_flags or None,
             dry_run=args.dry_run,
         )
         print()
