@@ -101,15 +101,23 @@ def create_grpo_trainer(
 
         rewards = math_accuracy_reward(prompts, texts, ground_truths)
 
-        # Log a sample completion for debugging
+        # Log sample completions for debugging
         if texts:
-            print("\n--- Sample completion ---")
-            print(f"Completion: {texts[0][:500]}")
-            print(f"Extracted answer: {extract_boxed_answer(texts[0])}")
-            print(f"Ground truth: {ground_truths[0]}")
-            print(f"Reward: {rewards[0]}")
-            print(f"Rewards distribution: {sum(rewards)}/{len(rewards)} correct")
-            print("--- End sample ---\n")
+            import json
+            from pathlib import Path
+
+            log_path = Path("completion_log.jsonl")
+            entry = {
+                "completion": texts[0],
+                "extracted_answer": extract_boxed_answer(texts[0]),
+                "ground_truth": ground_truths[0],
+                "reward": rewards[0],
+                "n_correct": sum(rewards),
+                "n_total": len(rewards),
+            }
+            with open(log_path, "a") as f:
+                f.write(json.dumps(entry) + "\n")
+            print(f"Rewards: {sum(rewards)}/{len(rewards)} correct (logged to {log_path})")
 
         return rewards
 
