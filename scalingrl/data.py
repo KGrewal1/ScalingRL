@@ -88,6 +88,9 @@ def math_accuracy_reward(
 # ---------------------------------------------------------------------------
 
 
+SYSTEM_PROMPT = "Please reason step by step, and put your final answer within \\boxed{}."
+
+
 def load_gsm8k_dataset(
     max_samples: int | None = None,
     seed: int = 42,
@@ -105,7 +108,10 @@ def load_gsm8k_dataset(
 
     def format_example(example):
         ground_truth = extract_gsm8k_ground_truth(example["answer"])
-        prompt = [{"role": "user", "content": example["question"]}]
+        prompt = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": example["question"]},
+        ]
         return {"prompt": prompt, "ground_truth": ground_truth}
 
     train_formatted = train_dataset.map(
