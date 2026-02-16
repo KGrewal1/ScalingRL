@@ -33,11 +33,11 @@ from scalingrl.evaluation.contamination import SUPPORTED_DATASETS, Contamination
 from scalingrl.utils import set_seed
 
 MODEL_FAMILIES = {
-    "qwen2.5": "Qwen/Qwen2.5-7B-Instruct-Instruct",
+    "qwen2.5": "Qwen/Qwen2.5-7B",
     "qwen3": "Qwen/Qwen3-8B",
-    "olmo3": "allenai/OLMo-3-1025-7B-Instruct",
-    "mistral": "mistralai/Mistral-7B-Instruct-v0.3",
-    "gemma2": "google/gemma-2-9b-it",
+    "olmo3": "allenai/OLMo-3-1025-7B",
+    "mistral": "mistralai/Mistral-7B-v0.3",
+    "gemma2": "google/gemma-2-9b",
 }
 
 
