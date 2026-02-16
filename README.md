@@ -6,8 +6,8 @@ GRPO training framework for investigating LoRA rank sensitivity across model fam
 **Training data**: GSM8K (openai/gsm8k)
 **Evaluation**: GSM8K test (pass@1), AIME, data contamination audit
 
-| Family  | Model ID                              |
-| ------- | ------------------------------------- |
+| Family  | Model ID                             |
+| ------- | ------------------------------------ |
 | qwen2.5 | `Qwen/Qwen2.5-7B-Instruct`           |
 | qwen3   | `Qwen/Qwen3-8B`                      |
 | olmo3   | `allenai/OLMo-3-1025-7B-Instruct`    |
@@ -66,3 +66,5 @@ uv run pytest tests/test_data.py::test_load_gsm8k_dataset -v  # single test
 ## Configuration
 
 All defaults are in `scalingrl/config.py`. Override via CLI args — see `python -m scripts.train --help`.
+
+scp -p 19013 .env root@79.112.1.66:/workspace/ScalingRL/.env

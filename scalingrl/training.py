@@ -5,7 +5,7 @@ from peft import LoraConfig
 from transformers import PreTrainedModel, PreTrainedTokenizer
 from trl import GRPOConfig, GRPOTrainer
 
-from scalingrl.data import math_accuracy_reward
+from scalingrl.data import extract_boxed_answer, math_accuracy_reward
 from scalingrl.lora_xs import apply_lora_xs, apply_tiny_lora
 
 
@@ -99,7 +99,19 @@ def create_grpo_trainer(
             else:
                 texts.append(c)
 
-        return math_accuracy_reward(prompts, texts, ground_truths)
+        rewards = math_accuracy_reward(prompts, texts, ground_truths)
+
+        # Log a sample completion for debugging
+        if texts:
+            print("\n--- Sample completion ---")
+            print(f"Completion: {texts[0][:500]}")
+            print(f"Extracted answer: {extract_boxed_answer(texts[0])}")
+            print(f"Ground truth: {ground_truths[0]}")
+            print(f"Reward: {rewards[0]}")
+            print(f"Rewards distribution: {sum(rewards)}/{len(rewards)} correct")
+            print("--- End sample ---\n")
+
+        return rewards
 
     trainer = GRPOTrainer(
         model=model,
