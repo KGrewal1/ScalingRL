@@ -23,6 +23,7 @@ dependencies = [
   # GPU speedup dependencies
   "vllm>=0.16.0",
   "liger-kernel>=0.5.0",
+  "zstandard>=0.25.0",
 ]
 
 [dependency-groups]
@@ -44,6 +45,8 @@ explicit = true
 
 [tool.uv.sources]
 torch = [{ index = "pytorch-cu130", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cu130", marker = "sys_platform == 'linux'" }]
+torchaudio = [{ index = "pytorch-cu130", marker = "sys_platform == 'linux'" }]
 vllm = [{ url = "https://github.com/vllm-project/vllm/releases/download/v0.16.0/vllm-0.16.0%2Bcu130-cp38-abi3-manylinux_2_35_x86_64.whl", marker = "sys_platform == 'linux'" }]
 
 [tool.ruff]

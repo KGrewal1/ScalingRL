@@ -29,7 +29,8 @@ def launch_experiment(
     """Launch a single experiment."""
     cmd = [
         "python",
-        "scripts/train.py",
+        "-m",
+        "scripts.train",
         "--model-name",
         model_name,
         "--model-family",
