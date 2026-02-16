@@ -86,6 +86,12 @@ def main():
     parser.add_argument("--tiny-lora-u", type=int, default=None, help="TinyLoRA projection dimension")
     parser.add_argument("--tiny-lora-n-tie", type=int, default=None, help="TinyLoRA weight tying factor")
     parser.add_argument("--vllm-gpu-memory", type=float, default=0.3, help="vLLM GPU memory utilization")
+    parser.add_argument("--batch-size", type=int, default=None, help="Per-device train batch size")
+    parser.add_argument("--grad-accum", type=int, default=None, help="Gradient accumulation steps")
+    parser.add_argument("--num-generations", type=int, default=None, help="GRPO num generations")
+    parser.add_argument("--epochs", type=int, default=None, help="Number of epochs")
+    parser.add_argument("--lr", type=float, default=None, help="Learning rate")
+    parser.add_argument("--max-samples", type=int, default=None, help="Limit dataset size")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -118,10 +124,22 @@ def main():
     else:
         parser.error(f"Unknown phase: {args.phase}")
 
-    # Build vLLM flags to forward to train.py
-    vllm_flags = []
+    # Build flags to forward to train.py
+    forward_flags = []
     if args.vllm_gpu_memory != 0.3:
-        vllm_flags.extend(["--vllm-gpu-memory", str(args.vllm_gpu_memory)])
+        forward_flags.extend(["--vllm-gpu-memory", str(args.vllm_gpu_memory)])
+    if args.batch_size is not None:
+        forward_flags.extend(["--batch-size", str(args.batch_size)])
+    if args.grad_accum is not None:
+        forward_flags.extend(["--grad-accum", str(args.grad_accum)])
+    if args.num_generations is not None:
+        forward_flags.extend(["--num-generations", str(args.num_generations)])
+    if args.epochs is not None:
+        forward_flags.extend(["--epochs", str(args.epochs)])
+    if args.lr is not None:
+        forward_flags.extend(["--lr", str(args.lr)])
+    if args.max_samples is not None:
+        forward_flags.extend(["--max-samples", str(args.max_samples)])
 
     # Generate experiments
     experiments = list(product(families, lora_ranks))
@@ -138,7 +156,7 @@ def main():
             adapter_type=args.adapter_type,
             tiny_lora_u=args.tiny_lora_u,
             tiny_lora_n_tie=args.tiny_lora_n_tie,
-            extra_flags=vllm_flags or None,
+            extra_flags=forward_flags or None,
             dry_run=args.dry_run,
         )
         print()
