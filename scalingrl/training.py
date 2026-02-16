@@ -79,14 +79,27 @@ def create_grpo_trainer(
     """Create GRPO trainer with built-in AdamW optimizer."""
 
     def reward_fn(prompts, completions, **kwargs):
-        """Reward function wrapper."""
+        """Reward function wrapper.
+
+        With conversational prompts, TRL passes completions as lists of message
+        dicts (e.g. [{"role": "assistant", "content": "..."}]).  Extract the
+        text content so the reward function can parse it.
+        """
         indices = kwargs.get("indices", None)
         if indices is not None:
             ground_truths = [train_dataset[i]["ground_truth"] for i in indices]
         else:
             ground_truths = [ex["ground_truth"] for ex in train_dataset][: len(prompts)]
 
-        return math_accuracy_reward(prompts, completions, ground_truths)
+        # Extract text from conversational format
+        texts = []
+        for c in completions:
+            if isinstance(c, list):
+                texts.append(c[0]["content"] if c else "")
+            else:
+                texts.append(c)
+
+        return math_accuracy_reward(prompts, texts, ground_truths)
 
     trainer = GRPOTrainer(
         model=model,

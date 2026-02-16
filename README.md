@@ -6,13 +6,13 @@ GRPO training framework for investigating LoRA rank sensitivity across model fam
 **Training data**: GSM8K (openai/gsm8k)
 **Evaluation**: GSM8K test (pass@1), AIME, data contamination audit
 
-| Family  | Model ID                    |
-| ------- | --------------------------- |
-| qwen2.5 | `Qwen/Qwen2.5-7B`           |
-| qwen3   | `Qwen/Qwen3-8B`             |
-| olmo3   | `allenai/OLMo-3-1025-7B`    |
-| mistral | `mistralai/Mistral-7B-v0.3` |
-| gemma2  | `google/gemma-2-9b`         |
+| Family  | Model ID                              |
+| ------- | ------------------------------------- |
+| qwen2.5 | `Qwen/Qwen2.5-7B-Instruct`           |
+| qwen3   | `Qwen/Qwen3-8B`                      |
+| olmo3   | `allenai/OLMo-3-1025-7B-Instruct`    |
+| mistral | `mistralai/Mistral-7B-Instruct-v0.3` |
+| gemma2  | `google/gemma-2-9b-it`               |
 
 ## Setup
 
@@ -50,7 +50,7 @@ python -m scripts.evaluate --checkpoint ./outputs/qwen2.5_lora8 --datasets gsm8k
 python -m scripts.evaluate --checkpoint ./outputs/qwen2.5_lora8 --datasets aime2025
 
 # Data contamination (completion @ 60%, per "Reasoning or Memorization?" paper)
-python -m scripts.evaluate_contamination --model-name Qwen/Qwen2.5-7B
+python -m scripts.evaluate_contamination --model-name Qwen/Qwen2.5-7B-Instruct
 python -m scripts.evaluate_contamination --all-families
 python -m scripts.evaluate_contamination --all-families --output-json contamination.json
 ```

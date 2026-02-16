@@ -9,7 +9,7 @@ Evaluates on both GSM8K and MATH-500 unconditionally.
 
 Usage:
     # Single base model
-    python scripts/evaluate_contamination.py --model-name Qwen/Qwen2.5-7B
+    python scripts/evaluate_contamination.py --model-name Qwen/Qwen2.5-7B-Instruct
 
     # All 5 families
     python scripts/evaluate_contamination.py --all-families
@@ -18,7 +18,7 @@ Usage:
     python scripts/evaluate_contamination.py --checkpoint ./outputs/qwen2.5_lora8
 
     # Custom prefix ratio
-    python scripts/evaluate_contamination.py --model-name Qwen/Qwen2.5-7B --prefix-ratio 0.4
+    python scripts/evaluate_contamination.py --model-name Qwen/Qwen2.5-7B-Instruct --prefix-ratio 0.4
 """
 
 import argparse
@@ -33,11 +33,11 @@ from scalingrl.evaluation.contamination import SUPPORTED_DATASETS, Contamination
 from scalingrl.utils import set_seed
 
 MODEL_FAMILIES = {
-    "qwen2.5": "Qwen/Qwen2.5-7B",
+    "qwen2.5": "Qwen/Qwen2.5-7B-Instruct-Instruct",
     "qwen3": "Qwen/Qwen3-8B",
-    "olmo3": "allenai/OLMo-3-1025-7B",
-    "mistral": "mistralai/Mistral-7B-v0.3",
-    "gemma2": "google/gemma-2-9b",
+    "olmo3": "allenai/OLMo-3-1025-7B-Instruct",
+    "mistral": "mistralai/Mistral-7B-Instruct-v0.3",
+    "gemma2": "google/gemma-2-9b-it",
 }
 
 

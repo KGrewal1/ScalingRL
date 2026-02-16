@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 class ModelConfig:
     """Model configuration."""
 
-    name: str = "Qwen/Qwen2.5-7B"
+    name: str = "Qwen/Qwen2.5-7B-Instruct"
     family: str = "qwen2.5"
     dtype: str = "bfloat16"
     device_map: str = "auto"

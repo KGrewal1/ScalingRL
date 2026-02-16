@@ -105,7 +105,8 @@ def load_gsm8k_dataset(
 
     def format_example(example):
         ground_truth = extract_gsm8k_ground_truth(example["answer"])
-        return {"prompt": example["question"], "ground_truth": ground_truth}
+        prompt = [{"role": "user", "content": example["question"]}]
+        return {"prompt": prompt, "ground_truth": ground_truth}
 
     train_formatted = train_dataset.map(
         format_example,
