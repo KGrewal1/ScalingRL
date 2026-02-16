@@ -31,26 +31,28 @@ bash smoke_test.sh
 python -m scripts.train --model-family qwen2.5 --lora-rank 8 --no-wandb
 
 # Full sweep (30 experiments) — dry-run first
-python -m scripts.sweep.py --phase phase1 --dry-run
-python -m scripts.sweep.py --phase phase1
+python -m scripts.sweep --phase phase1 --dry-run
+python -m scripts.sweep --phase phase1
 
 # Custom subset
-python -m scripts.sweep.py --phase custom --model-families qwen2.5 mistral --lora-ranks 4 8 --dry-run
+python -m scripts.sweep --phase custom --model-families qwen2.5 mistral --lora-ranks 4 8 --dry-run
 ```
+
+Rollout generation uses vLLM in colocate mode by default. Adjust GPU memory fraction with `--vllm-gpu-memory` (default 0.3).
 
 ## Evaluation
 
 ```bash
 # GSM8K pass@1
-python -m scripts.evaluate.py --checkpoint ./outputs/qwen2.5_lora8 --datasets gsm8k
+python -m scripts.evaluate --checkpoint ./outputs/qwen2.5_lora8 --datasets gsm8k
 
 # AIME
-python -m scripts.evaluate.py --checkpoint ./outputs/qwen2.5_lora8 --datasets aime2025
+python -m scripts.evaluate --checkpoint ./outputs/qwen2.5_lora8 --datasets aime2025
 
 # Data contamination (completion @ 60%, per "Reasoning or Memorization?" paper)
-python -m scripts.evaluate_contamination.py --model-name Qwen/Qwen2.5-7B
-python -m scripts.evaluate_contamination.py --all-families
-python -m scripts.evaluate_contamination.py --all-families --output-json contamination.json
+python -m scripts.evaluate_contamination --model-name Qwen/Qwen2.5-7B
+python -m scripts.evaluate_contamination --all-families
+python -m scripts.evaluate_contamination --all-families --output-json contamination.json
 ```
 
 ## Tests
@@ -63,4 +65,4 @@ uv run pytest tests/test_data.py::test_load_gsm8k_dataset -v  # single test
 
 ## Configuration
 
-All defaults are in `scalingrl/config.py`. Override via CLI args — see `python scripts/train.py --help`.
+All defaults are in `scalingrl/config.py`. Override via CLI args — see `python -m scripts.train --help`.

@@ -75,6 +75,7 @@ class GRPOConfig:
     max_completion_length: int = 512
     temperature: float = 1.0
     beta: float = 0.0
+    vllm_gpu_memory_utilization: float = 0.3
 
 
 @dataclass
@@ -96,19 +97,6 @@ class ProjectConfig:
 
 
 @dataclass
-class SpeedupConfig:
-    """GPU speedup flags (all default off for backward compat)."""
-
-    flash_attention: bool = False
-    use_vllm: bool = False
-    vllm_gpu_memory_utilization: float = 0.3
-    use_liger_kernel: bool = False
-    torch_compile: bool = False
-    torch_compile_backend: str = "inductor"
-    torch_compile_mode: str = "reduce-overhead"
-
-
-@dataclass
 class ExperimentConfig:
     """Full experiment configuration with defaults."""
 
@@ -120,4 +108,3 @@ class ExperimentConfig:
     grpo: GRPOConfig = field(default_factory=GRPOConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     project: ProjectConfig = field(default_factory=ProjectConfig)
-    speedup: SpeedupConfig = field(default_factory=SpeedupConfig)
