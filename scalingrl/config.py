@@ -72,7 +72,7 @@ class GRPOConfig:
     """GRPO specific configuration."""
 
     num_generations: int = 4
-    max_completion_length: int = 4096
+    max_completion_length: int = 1024
     temperature: float = 1.0
     beta: float = 0.0
     vllm_gpu_memory_utilization: float = 0.3
