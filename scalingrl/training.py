@@ -75,6 +75,7 @@ def create_grpo_trainer(
     adapter_type: str = "lora",
     tiny_lora_u: int = 1,
     tiny_lora_n_tie: int | None = None,
+    eval_dataset: Dataset | None = None,
 ) -> GRPOTrainer:
     """Create GRPO trainer with built-in AdamW optimizer."""
 
@@ -123,6 +124,7 @@ def create_grpo_trainer(
         args=grpo_config,
         reward_funcs=reward_fn,
         train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         processing_class=tokenizer,
         peft_config=peft_config,
     )

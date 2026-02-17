@@ -92,6 +92,7 @@ def main():
     parser.add_argument("--epochs", type=int, default=None, help="Number of epochs")
     parser.add_argument("--lr", type=float, default=None, help="Learning rate")
     parser.add_argument("--max-samples", type=int, default=None, help="Limit dataset size")
+    parser.add_argument("--wandb-group", type=str, default=None, help="Wandb group name")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -140,6 +141,8 @@ def main():
         forward_flags.extend(["--lr", str(args.lr)])
     if args.max_samples is not None:
         forward_flags.extend(["--max-samples", str(args.max_samples)])
+    if args.wandb_group is not None:
+        forward_flags.extend(["--wandb-group", args.wandb_group])
 
     # Generate experiments
     experiments = list(product(families, lora_ranks))
