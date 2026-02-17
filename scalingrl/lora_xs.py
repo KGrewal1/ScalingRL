@@ -70,7 +70,6 @@ def bake_r_into_a(model: nn.Module) -> None:
     is B @ (R @ A) * scaling instead of B @ A * scaling (which omits R).
     """
     adapter_name = "default"
-    n_baked = 0
     for module in model.modules():
         if not isinstance(module, LoraLinear):
             continue
@@ -89,8 +88,6 @@ def bake_r_into_a(model: nn.Module) -> None:
             # LoRA-XS: r_matrix is nn.Linear with weight (r, r)
             effective = wrapper.r_matrix.weight @ wrapper.lora_a.weight.data
         wrapper.lora_a.weight.data.copy_(effective)
-        n_baked += 1
-    print(f"[bake_r_into_a] baked R into {n_baked} modules")
 
 
 def unbake_r_from_a(model: nn.Module) -> None:
@@ -123,14 +120,17 @@ def apply_lora_xs(model: nn.Module, rank: int) -> nn.Module:
     `lora_B(R(lora_A(x)))` without needing to modify the forward method.
     """
     adapter_name = "default"
-    modules_converted = 0
 
+    # Collect modules first so we can show progress
+    lora_modules: list[tuple[str, LoraLinear]] = []
     for name, module in model.named_modules():
-        if not isinstance(module, LoraLinear):
-            continue
-        if adapter_name not in module.lora_A:
-            continue
+        if isinstance(module, LoraLinear) and adapter_name in module.lora_A:
+            lora_modules.append((name, module))
 
+    total = len(lora_modules)
+    print(f"LoRA-XS: computing SVD for {total} modules (this may take a while)...")
+
+    for idx, (name, module) in enumerate(lora_modules):
         lora_a = module.lora_A[adapter_name]  # nn.Linear(k, r, bias=False)
         lora_b = module.lora_B[adapter_name]  # nn.Linear(r, d, bias=False)
 
@@ -138,6 +138,7 @@ def apply_lora_xs(model: nn.Module, rank: int) -> nn.Module:
         base_weight = module.get_base_layer().weight.data  # (d, k)
 
         # Compute SVD factors
+        print(f"  SVD [{idx + 1}/{total}] {name} {tuple(base_weight.shape)}", flush=True)
         encoder, decoder = _compute_svd_factors(base_weight, rank)
         # encoder: (r, k), decoder: (d, r)
 
@@ -162,12 +163,10 @@ def apply_lora_xs(model: nn.Module, rank: int) -> nn.Module:
         # The wrapper exposes .weight so PEFT's dtype casting still works.
         module.lora_A[adapter_name] = _LoraAWithR(lora_a, r_matrix)
 
-        modules_converted += 1
-
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"LoRA-XS: converted {modules_converted} modules (r={rank}, r²={rank**2})")
+    print(f"LoRA-XS: converted {total} modules (r={rank}, r²={rank**2})")
     print(f"  Trainable parameters: {trainable:,}")
-    print(f"  Expected: ~{modules_converted * rank**2:,} (from R matrices)")
+    print(f"  Expected: ~{total * rank**2:,} (from R matrices)")
 
     return model
 
@@ -256,12 +255,15 @@ def apply_tiny_lora(
     n_groups = (total_modules + n_tie - 1) // n_tie
     shared_vs = [nn.Parameter(torch.zeros(u, device=device, dtype=dtype)) for _ in range(n_groups)]
 
+    print(f"TinyLoRA: computing SVD for {total_modules} modules (this may take a while)...")
+
     for idx, (name, module) in enumerate(lora_modules):
         lora_a = module.lora_A[adapter_name]
         lora_b = module.lora_B[adapter_name]
         base_weight = module.get_base_layer().weight.data
 
         # SVD initialization (same as LoRA-XS)
+        print(f"  SVD [{idx + 1}/{total_modules}] {name} {tuple(base_weight.shape)}", flush=True)
         encoder, decoder = _compute_svd_factors(base_weight, rank)
 
         with torch.no_grad():
