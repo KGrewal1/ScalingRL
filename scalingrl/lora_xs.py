@@ -45,18 +45,23 @@ def _compute_svd_factors(weight: torch.Tensor, rank: int) -> tuple[torch.Tensor,
       - decoder: U_r @ diag(S_r) of shape (d, r) — goes into lora_B
 
     The forward path becomes: lora_B(R(lora_A(x))) = (U Σ) R (V^T x)
+
+    Uses randomized SVD (torch.svd_lowrank) which only computes the top-r
+    singular vectors — orders of magnitude faster than full SVD for small r.
     """
-    # Full SVD on CPU for numerical stability, then truncate
-    W = weight.float().cpu()
-    U, S, Vt = torch.linalg.svd(W, full_matrices=False)
+    W = weight.float()  # float32 on same device (GPU)
+    # Slight oversampling (q > rank) improves accuracy of randomized SVD
+    q = max(rank, 6)
+    U, S, V = torch.svd_lowrank(W, q=q, niter=2)
+    # U: (d, q), S: (q,), V: (k, q)
 
     # Truncate to rank r
     U_r = U[:, :rank]  # (d, r)
     S_r = S[:rank]  # (r,)
-    Vt_r = Vt[:rank, :]  # (r, k)
+    V_r = V[:, :rank]  # (k, r)
 
     # encoder = V_r^T (used as lora_A weight), shape (r, k)
-    encoder = Vt_r
+    encoder = V_r.T
     # decoder = U_r @ diag(S_r) (used as lora_B weight), shape (d, r)
     decoder = U_r * S_r.unsqueeze(0)  # broadcast multiply
 
