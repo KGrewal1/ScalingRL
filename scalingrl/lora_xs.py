@@ -63,6 +63,49 @@ def _compute_svd_factors(weight: torch.Tensor, rank: int) -> tuple[torch.Tensor,
     return encoder.to(weight.dtype), decoder.to(weight.dtype)
 
 
+def bake_r_into_a(model: nn.Module) -> None:
+    """Temporarily replace frozen A weights with effective R @ A.
+
+    This must be called before PEFT's merge_adapter() so that the merged delta
+    is B @ (R @ A) * scaling instead of B @ A * scaling (which omits R).
+    """
+    adapter_name = "default"
+    for module in model.modules():
+        if not isinstance(module, LoraLinear):
+            continue
+        if adapter_name not in module.lora_A:
+            continue
+        wrapper = module.lora_A[adapter_name]
+        if not isinstance(wrapper, _LoraAWithR):
+            continue
+        # Save original frozen A weight
+        wrapper._saved_a_weight = wrapper.lora_a.weight.data.clone()
+        # Compute effective weight: R @ A
+        if isinstance(wrapper.r_matrix, _TinyLoRAMapping):
+            R = torch.einsum("i,ijk->jk", wrapper.r_matrix.v, wrapper.r_matrix.P)
+            effective = R @ wrapper.lora_a.weight.data
+        else:
+            # LoRA-XS: r_matrix is nn.Linear with weight (r, r)
+            effective = wrapper.r_matrix.weight @ wrapper.lora_a.weight.data
+        wrapper.lora_a.weight.data.copy_(effective)
+
+
+def unbake_r_from_a(model: nn.Module) -> None:
+    """Restore original frozen A weights after merge/unmerge cycle."""
+    adapter_name = "default"
+    for module in model.modules():
+        if not isinstance(module, LoraLinear):
+            continue
+        if adapter_name not in module.lora_A:
+            continue
+        wrapper = module.lora_A[adapter_name]
+        if not isinstance(wrapper, _LoraAWithR):
+            continue
+        if hasattr(wrapper, "_saved_a_weight"):
+            wrapper.lora_a.weight.data.copy_(wrapper._saved_a_weight)
+            del wrapper._saved_a_weight
+
+
 def apply_lora_xs(model: nn.Module, rank: int) -> nn.Module:
     """Convert a PEFT LoRA model to LoRA-XS in-place.
 

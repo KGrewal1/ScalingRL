@@ -6,7 +6,7 @@ from transformers import PreTrainedModel, PreTrainedTokenizer
 from trl import GRPOConfig, GRPOTrainer
 
 from scalingrl.data import extract_boxed_answer, math_accuracy_reward
-from scalingrl.lora_xs import apply_lora_xs, apply_tiny_lora
+from scalingrl.lora_xs import apply_lora_xs, apply_tiny_lora, bake_r_into_a, unbake_r_from_a
 
 
 def create_grpo_config(
@@ -133,6 +133,25 @@ def create_grpo_trainer(
         apply_lora_xs(trainer.model, rank=peft_config.r)
     elif adapter_type == "tiny_lora" and peft_config is not None:
         apply_tiny_lora(trainer.model, rank=peft_config.r, u=tiny_lora_u, n_tie=tiny_lora_n_tie)
+
+    # Patch merge/unmerge so vLLM weight sync includes R in the delta.
+    # Without this, PEFT's merge reads lora_A.weight (frozen A) and misses R,
+    # producing wrong merged weights for vLLM inference.
+    if adapter_type in ("lora_xs", "tiny_lora") and peft_config is not None:
+        original_merge = trainer.model.merge_adapter
+        original_unmerge = trainer.model.unmerge_adapter
+
+        def patched_merge(*args, **kwargs):
+            bake_r_into_a(trainer.model)
+            return original_merge(*args, **kwargs)
+
+        def patched_unmerge(*args, **kwargs):
+            result = original_unmerge(*args, **kwargs)
+            unbake_r_from_a(trainer.model)
+            return result
+
+        trainer.model.merge_adapter = patched_merge
+        trainer.model.unmerge_adapter = patched_unmerge
 
     print("GRPO Trainer created successfully")
     return trainer
