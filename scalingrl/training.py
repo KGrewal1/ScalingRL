@@ -142,6 +142,7 @@ def create_grpo_trainer(
         original_unmerge = trainer.model.unmerge_adapter
 
         def patched_merge(*args, **kwargs):
+            print("[patched_merge] baking R into A before merge")
             bake_r_into_a(trainer.model)
             return original_merge(*args, **kwargs)
 

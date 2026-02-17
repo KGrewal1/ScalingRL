@@ -70,6 +70,7 @@ def bake_r_into_a(model: nn.Module) -> None:
     is B @ (R @ A) * scaling instead of B @ A * scaling (which omits R).
     """
     adapter_name = "default"
+    n_baked = 0
     for module in model.modules():
         if not isinstance(module, LoraLinear):
             continue
@@ -88,6 +89,8 @@ def bake_r_into_a(model: nn.Module) -> None:
             # LoRA-XS: r_matrix is nn.Linear with weight (r, r)
             effective = wrapper.r_matrix.weight @ wrapper.lora_a.weight.data
         wrapper.lora_a.weight.data.copy_(effective)
+        n_baked += 1
+    print(f"[bake_r_into_a] baked R into {n_baked} modules")
 
 
 def unbake_r_from_a(model: nn.Module) -> None:
