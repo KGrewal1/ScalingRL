@@ -38,8 +38,12 @@ def parse_args():
     # GRPO
     parser.add_argument("--num-generations", type=int, help="GRPO num generations")
 
+    # vLLM
+    parser.add_argument("--vllm-gpu-memory", type=float, default=0.3, help="vLLM GPU memory utilization (default: 0.3)")
+
     # Other
     parser.add_argument("--no-wandb", action="store_true", help="Disable wandb")
+    parser.add_argument("--wandb-group", type=str, help="Wandb group name (for separating sweep runs)")
     parser.add_argument("--seed", type=int, help="Random seed")
     parser.add_argument("--output-dir", type=str, help="Output directory")
 
@@ -85,6 +89,7 @@ def main():
         config.project.seed = args.seed
     if args.output_dir:
         config.project.output_dir = args.output_dir
+    config.grpo.vllm_gpu_memory_utilization = args.vllm_gpu_memory
 
     # Log configuration
     print("\n" + "=" * 60)
@@ -101,6 +106,7 @@ def main():
     print(f"Epochs: {config.training.num_train_epochs}")
     print(f"Batch size: {config.training.per_device_train_batch_size}")
     print(f"GRPO generations: {config.grpo.num_generations}")
+    print(f"vLLM GPU memory: {config.grpo.vllm_gpu_memory_utilization}")
     print("=" * 60 + "\n")
 
     # Derive adapter label for run naming
@@ -120,6 +126,7 @@ def main():
     # Setup wandb
     if config.logging.use_wandb:
         run_name = f"{config.model.family}_{adapter_label}{config.lora.r}"
+        wandb_group = args.wandb_group or f"family_{config.model.family}"
         setup_wandb(
             project=config.logging.wandb_project,
             run_name=run_name,
@@ -130,7 +137,7 @@ def main():
                 "training": config.training.__dict__,
                 "grpo": config.grpo.__dict__,
             },
-            group=f"family_{config.model.family}",
+            group=wandb_group,
             tags=[
                 f"lora_r{config.lora.r}",
                 config.model.family,
@@ -148,7 +155,9 @@ def main():
         seed=config.project.seed,
     )
     train_dataset = datasets["train"]
+    eval_dataset = datasets["test"]
     print(f"Training dataset size: {len(train_dataset)}")
+    print(f"Eval dataset size: {len(eval_dataset)}")
 
     print("\n" + "=" * 60)
     print("Step 2: Loading Model")
@@ -159,7 +168,7 @@ def main():
         model_name=config.model.name,
         dtype=config.model.dtype,
         device_map=config.model.device_map,
-        use_flash_attention=config.model.flash_attention,
+        use_flash_attention=False,
     )
 
     print("\n" + "=" * 60)
@@ -207,6 +216,7 @@ def main():
         bf16=config.training.bf16,
         gradient_checkpointing=config.training.gradient_checkpointing,
         report_to="wandb" if config.logging.use_wandb else "none",
+        vllm_gpu_memory_utilization=config.grpo.vllm_gpu_memory_utilization,
     )
 
     # Create trainer
@@ -219,6 +229,7 @@ def main():
         adapter_type=config.lora.adapter_type,
         tiny_lora_u=config.lora.tiny_lora_u,
         tiny_lora_n_tie=config.lora.tiny_lora_n_tie,
+        eval_dataset=eval_dataset,
     )
 
     # Count trainable parameters
@@ -236,6 +247,37 @@ def main():
     print("Training Complete!")
     print("=" * 60)
     print(f"Model saved to: {trainer.args.output_dir}")
+
+    # Save structured results
+    import json
+
+    result_entry = {
+        "model": config.model.name,
+        "family": config.model.family,
+        "adapter_type": config.lora.adapter_type,
+        "lora_rank": config.lora.r,
+        "trainable_params": count_trainable_parameters(trainer.model)[0],
+        "lr": config.optimizer.lr,
+        "epochs": config.training.num_train_epochs,
+        "num_generations": config.grpo.num_generations,
+        "checkpoint": output_dir,
+    }
+
+    # Pull final metrics from trainer log history
+    if trainer.state.log_history:
+        last = trainer.state.log_history[-1]
+        result_entry["train_reward"] = last.get("train/reward")
+        result_entry["train_loss"] = last.get("train_loss", last.get("train/loss"))
+        # Find last eval entry
+        for entry in reversed(trainer.state.log_history):
+            if "eval/reward" in entry:
+                result_entry["eval_reward"] = entry["eval/reward"]
+                break
+
+    results_path = os.path.join(config.project.output_dir, "results.jsonl")
+    with open(results_path, "a") as f:
+        f.write(json.dumps(result_entry) + "\n")
+    print(f"Results appended to {results_path}")
 
     # Finish wandb
     finish_wandb()

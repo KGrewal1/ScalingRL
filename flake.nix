@@ -49,6 +49,21 @@
 
       python = pkgs.python312;
 
+      # Overlay to fix packages with native CUDA/ROCm/Intel/RDMA deps.
+      # These wheels ship .so files linking optional backends (ROCm, Intel, RDMA);
+      # auto-patchelf can't satisfy all of them. CUDA libs are available at
+      # runtime via LD_LIBRARY_PATH in the Docker image.
+      cudaFixup = final: prev: let
+        addAutoPatchelfIgnore = name: drv: drv.overrideAttrs (old: {
+          autoPatchelfIgnoreMissingDeps = true;
+        });
+        # All packages that ship native .so files with optional deps
+        needsIgnore = lib.filterAttrs (name: _:
+          lib.hasPrefix "nvidia-" name ||
+          builtins.elem name [ "bitsandbytes" "torch" "triton" ]
+        ) prev;
+      in lib.mapAttrs addAutoPatchelfIgnore needsIgnore;
+
       pythonSet =
         (pkgs.callPackage pyproject-nix.build.packages {
           inherit python;
@@ -56,6 +71,7 @@
           (lib.composeManyExtensions [
             pyproject-build-systems.overlays.default
             overlay
+            cudaFixup
           ]);
 
       venv = pythonSet.mkVirtualEnv "scalingrl-env" workspace.deps.default;
@@ -130,6 +146,7 @@ EOF
           Env = [
             "HOME=/home/dev"
             "USER=dev"
+            "PATH=${venv}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
             "UV_PYTHON_PREFERENCE=system"
             "UV_PYTHON=${base.env.UV_PYTHON}"
             "LD_LIBRARY_PATH=${base.env.LD_LIBRARY_PATH}:${cuda.env.LD_LIBRARY_PATH}"

@@ -17,12 +17,20 @@ LORA_RANKS = [1, 2, 4, 8, 16, 64]
 
 
 def launch_experiment(
-    family, model_name, lora_rank, adapter_type="lora", tiny_lora_u=None, tiny_lora_n_tie=None, dry_run=False
+    family,
+    model_name,
+    lora_rank,
+    adapter_type="lora",
+    tiny_lora_u=None,
+    tiny_lora_n_tie=None,
+    extra_flags=None,
+    dry_run=False,
 ):
     """Launch a single experiment."""
     cmd = [
         "python",
-        "scripts/train.py",
+        "-m",
+        "scripts.train",
         "--model-name",
         model_name,
         "--model-family",
@@ -36,6 +44,8 @@ def launch_experiment(
         cmd.extend(["--tiny-lora-u", str(tiny_lora_u)])
     if tiny_lora_n_tie is not None:
         cmd.extend(["--tiny-lora-n-tie", str(tiny_lora_n_tie)])
+    if extra_flags:
+        cmd.extend(extra_flags)
 
     if dry_run:
         print(f"  Command: {' '.join(cmd)}")
@@ -75,6 +85,14 @@ def main():
     )
     parser.add_argument("--tiny-lora-u", type=int, default=None, help="TinyLoRA projection dimension")
     parser.add_argument("--tiny-lora-n-tie", type=int, default=None, help="TinyLoRA weight tying factor")
+    parser.add_argument("--vllm-gpu-memory", type=float, default=0.3, help="vLLM GPU memory utilization")
+    parser.add_argument("--batch-size", type=int, default=None, help="Per-device train batch size")
+    parser.add_argument("--grad-accum", type=int, default=None, help="Gradient accumulation steps")
+    parser.add_argument("--num-generations", type=int, default=None, help="GRPO num generations")
+    parser.add_argument("--epochs", type=int, default=None, help="Number of epochs")
+    parser.add_argument("--lr", type=float, default=None, help="Learning rate")
+    parser.add_argument("--max-samples", type=int, default=None, help="Limit dataset size")
+    parser.add_argument("--wandb-group", type=str, default=None, help="Wandb group name")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -107,6 +125,25 @@ def main():
     else:
         parser.error(f"Unknown phase: {args.phase}")
 
+    # Build flags to forward to train.py
+    forward_flags = []
+    if args.vllm_gpu_memory != 0.3:
+        forward_flags.extend(["--vllm-gpu-memory", str(args.vllm_gpu_memory)])
+    if args.batch_size is not None:
+        forward_flags.extend(["--batch-size", str(args.batch_size)])
+    if args.grad_accum is not None:
+        forward_flags.extend(["--grad-accum", str(args.grad_accum)])
+    if args.num_generations is not None:
+        forward_flags.extend(["--num-generations", str(args.num_generations)])
+    if args.epochs is not None:
+        forward_flags.extend(["--epochs", str(args.epochs)])
+    if args.lr is not None:
+        forward_flags.extend(["--lr", str(args.lr)])
+    if args.max_samples is not None:
+        forward_flags.extend(["--max-samples", str(args.max_samples)])
+    if args.wandb_group is not None:
+        forward_flags.extend(["--wandb-group", args.wandb_group])
+
     # Generate experiments
     experiments = list(product(families, lora_ranks))
     print(f"Total experiments: {len(experiments)}\n")
@@ -122,6 +159,7 @@ def main():
             adapter_type=args.adapter_type,
             tiny_lora_u=args.tiny_lora_u,
             tiny_lora_n_tie=args.tiny_lora_n_tie,
+            extra_flags=forward_flags or None,
             dry_run=args.dry_run,
         )
         print()

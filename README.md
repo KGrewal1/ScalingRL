@@ -6,13 +6,13 @@ GRPO training framework for investigating LoRA rank sensitivity across model fam
 **Training data**: GSM8K (openai/gsm8k)
 **Evaluation**: GSM8K test (pass@1), AIME, data contamination audit
 
-| Family | Model ID |
-|--------|----------|
-| qwen2.5 | `Qwen/Qwen2.5-7B` |
-| qwen3 | `Qwen/Qwen3-8B` |
-| olmo3 | `allenai/OLMo-3-1025-7B` |
-| mistral | `mistralai/Mistral-7B-v0.3` |
-| gemma2 | `google/gemma-2-9b` |
+| Family  | Model ID                             |
+| ------- | ------------------------------------ |
+| qwen2.5 | `Qwen/Qwen2.5-7B-Instruct`           |
+| qwen3   | `Qwen/Qwen3-8B`                      |
+| olmo3   | `allenai/OLMo-3-1025-7B-Instruct`    |
+| mistral | `mistralai/Mistral-7B-Instruct-v0.3` |
+| gemma2  | `google/gemma-2-9b-it`               |
 
 ## Setup
 
@@ -28,29 +28,31 @@ wandb login  # optional, or use --no-wandb
 bash smoke_test.sh
 
 # Single run
-python scripts/train.py --model-family qwen2.5 --lora-rank 8 --no-wandb
+python -m scripts.train --model-family qwen2.5 --lora-rank 8 --no-wandb
 
 # Full sweep (30 experiments) — dry-run first
-python scripts/sweep.py --phase phase1 --dry-run
-python scripts/sweep.py --phase phase1
+python -m scripts.sweep --phase phase1 --dry-run
+python -m scripts.sweep --phase phase1
 
 # Custom subset
-python scripts/sweep.py --phase custom --model-families qwen2.5 mistral --lora-ranks 4 8 --dry-run
+python -m scripts.sweep --phase custom --model-families qwen2.5 mistral --lora-ranks 4 8 --dry-run
 ```
+
+Rollout generation uses vLLM in colocate mode by default. Adjust GPU memory fraction with `--vllm-gpu-memory` (default 0.3).
 
 ## Evaluation
 
 ```bash
 # GSM8K pass@1
-python scripts/evaluate.py --checkpoint ./outputs/qwen2.5_lora8 --datasets gsm8k
+python -m scripts.evaluate --checkpoint ./outputs/qwen2.5_lora8 --datasets gsm8k
 
 # AIME
-python scripts/evaluate.py --checkpoint ./outputs/qwen2.5_lora8 --datasets aime2025
+python -m scripts.evaluate --checkpoint ./outputs/qwen2.5_lora8 --datasets aime2025
 
 # Data contamination (completion @ 60%, per "Reasoning or Memorization?" paper)
-python scripts/evaluate_contamination.py --model-name Qwen/Qwen2.5-7B
-python scripts/evaluate_contamination.py --all-families
-python scripts/evaluate_contamination.py --all-families --output-json contamination.json
+python -m scripts.evaluate_contamination --model-name Qwen/Qwen2.5-7B-Instruct
+python -m scripts.evaluate_contamination --all-families
+python -m scripts.evaluate_contamination --all-families --output-json contamination.json
 ```
 
 ## Tests
@@ -63,4 +65,6 @@ uv run pytest tests/test_data.py::test_load_gsm8k_dataset -v  # single test
 
 ## Configuration
 
-All defaults are in `scalingrl/config.py`. Override via CLI args — see `python scripts/train.py --help`.
+All defaults are in `scalingrl/config.py`. Override via CLI args — see `python -m scripts.train --help`.
+
+scp -p 19013 .env root@79.112.1.66:/workspace/ScalingRL/.env

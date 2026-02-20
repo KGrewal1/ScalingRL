@@ -63,11 +63,18 @@ def setup_wandb(
     tags: list | None = None,
 ) -> None:
     """Setup Weights & Biases logging."""
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
     try:
         import wandb
     except ImportError:
         print("Warning: wandb not installed. Install with: pip install wandb")
         return
+
+    api_key = os.environ["WANDB_API_KEY"]
+    wandb.login(key=api_key)
 
     wandb.init(
         project=project,

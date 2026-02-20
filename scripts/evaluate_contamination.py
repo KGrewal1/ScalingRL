@@ -9,7 +9,7 @@ Evaluates on both GSM8K and MATH-500 unconditionally.
 
 Usage:
     # Single base model
-    python scripts/evaluate_contamination.py --model-name Qwen/Qwen2.5-7B
+    python scripts/evaluate_contamination.py --model-name Qwen/Qwen2.5-7B-Instruct
 
     # All 5 families
     python scripts/evaluate_contamination.py --all-families
@@ -18,7 +18,7 @@ Usage:
     python scripts/evaluate_contamination.py --checkpoint ./outputs/qwen2.5_lora8
 
     # Custom prefix ratio
-    python scripts/evaluate_contamination.py --model-name Qwen/Qwen2.5-7B --prefix-ratio 0.4
+    python scripts/evaluate_contamination.py --model-name Qwen/Qwen2.5-7B-Instruct --prefix-ratio 0.4
 """
 
 import argparse
