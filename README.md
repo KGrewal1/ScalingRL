@@ -6,13 +6,13 @@ GRPO training framework for investigating LoRA rank sensitivity across model fam
 **Training data**: GSM8K (openai/gsm8k)
 **Evaluation**: GSM8K test (pass@1), AIME, data contamination audit
 
-| Family  | Model ID                             |
-| ------- | ------------------------------------ |
-| qwen2.5 | `Qwen/Qwen2.5-7B-Instruct`           |
-| qwen3   | `Qwen/Qwen3-8B`                      |
-| olmo3   | `allenai/OLMo-3-1025-7B-Instruct`    |
-| mistral | `mistralai/Mistral-7B-Instruct-v0.3` |
-| gemma2  | `google/gemma-2-9b-it`               |
+| Family  | Model ID                         |
+| ------- | -------------------------------- |
+| qwen2.5 | `Qwen/Qwen2.5-7B`               |
+| qwen3   | `Qwen/Qwen3-8B`                 |
+| olmo3   | `allenai/OLMo-3-1025-7B`        |
+| mistral | `mistralai/Ministral-3-8B-Base-2512` |
+| gemma2  | `google/gemma-2-9b`              |
 
 ## Setup
 
@@ -63,8 +63,23 @@ uv run pytest tests/test_data.py -v          # single file
 uv run pytest tests/test_data.py::test_load_gsm8k_dataset -v  # single test
 ```
 
+## Reproducing Morris et al. (GSM8K, Qwen2.5-7B)
+
+Config defaults now match the paper: batch 8 x grad_accum 8 = effective batch 64, 4 generations, max_completion_length 4096, beta 0, 3 epochs.
+
+```bash
+# Single Qwen2.5 run
+python -m scripts.train --model-family qwen2.5 --lora-rank 8
+
+# Sweep LoRA ranks for Qwen2.5 (use --wandb-group to separate from other runs)
+python -m scripts.sweep --phase custom \
+  --model-families qwen2.5 \
+  --lora-ranks 1 2 4 8 16 64 \
+  --wandb-group qwen2.5-lora-sweep
+```
+
+Note: paper used instruct models and swept LR per rank ({1e-7, 5e-7, 1e-6, 5e-6, 1e-5, 1e-4, 2e-4}).
+
 ## Configuration
 
 All defaults are in `scalingrl/config.py`. Override via CLI args — see `python -m scripts.train --help`.
-
-scp -p 19013 .env root@79.112.1.66:/workspace/ScalingRL/.env

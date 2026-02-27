@@ -9,7 +9,7 @@ MODEL_FAMILIES = {
     "qwen2.5": "Qwen/Qwen2.5-7B",
     "qwen3": "Qwen/Qwen3-8B",
     "olmo3": "allenai/OLMo-3-1025-7B",
-    "mistral": "mistralai/Mistral-7B-v0.3",
+    "mistral": "mistralai/Ministral-3-8B-Base-2512",
     "gemma2": "google/gemma-2-9b",
 }
 
