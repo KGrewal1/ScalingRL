@@ -102,6 +102,12 @@ def main():
         default=42,
         help="Random seed",
     )
+    parser.add_argument(
+        "--output-json",
+        type=str,
+        default=None,
+        help="Path to save evaluation results as JSON",
+    )
 
     args = parser.parse_args()
 
@@ -151,6 +157,12 @@ def main():
     for key, value in results.items():
         print(f"{key}: {value:.2%}")
     print("=" * 60)
+
+    # Save to JSON if requested
+    if args.output_json:
+        with open(args.output_json, "w") as f:
+            json.dump({"checkpoint": args.checkpoint, "results": results}, f, indent=2)
+        print(f"Results saved to: {args.output_json}")
 
     # Log to wandb if available
     log_metrics(results)
