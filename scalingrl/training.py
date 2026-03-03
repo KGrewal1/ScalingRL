@@ -2,11 +2,52 @@
 
 from datasets import Dataset
 from peft import LoraConfig
-from transformers import PreTrainedModel, PreTrainedTokenizer
+from transformers import PreTrainedModel, PreTrainedTokenizer, TrainerCallback, TrainerControl, TrainerState, TrainingArguments
 from trl import GRPOConfig, GRPOTrainer
 
 from scalingrl.data import extract_boxed_answer, math_accuracy_reward
 from scalingrl.lora_xs import apply_lora_xs, apply_tiny_lora, bake_r_into_a, unbake_r_from_a
+
+
+class RewardPlateauCallback(TrainerCallback):
+    """Stop training early when reward plateaus.
+
+    Monitors the ``reward`` metric emitted every ``logging_steps`` and sets
+    ``should_training_stop`` when no improvement of at least ``min_delta``
+    has been observed for ``patience`` consecutive log events.
+    """
+
+    def __init__(self, patience: int = 20, min_delta: float = 0.01):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.best_reward: float = float("-inf")
+        self.wait: int = 0
+
+    def on_log(
+        self,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
+        logs: dict | None = None,
+        **kwargs,
+    ) -> None:
+        if logs is None:
+            return
+        reward = logs.get("reward")
+        if reward is None:
+            return
+        if reward > self.best_reward + self.min_delta:
+            self.best_reward = reward
+            self.wait = 0
+        else:
+            self.wait += 1
+            if self.wait >= self.patience:
+                print(
+                    f"\nEarly stopping: reward {reward:.4f} has not improved "
+                    f"over best {self.best_reward:.4f} for {self.patience} "
+                    f"logging steps ({self.patience * args.logging_steps} train steps)"
+                )
+                control.should_training_stop = True
 
 
 def create_grpo_config(
@@ -76,6 +117,7 @@ def create_grpo_trainer(
     tiny_lora_u: int = 1,
     tiny_lora_n_tie: int | None = None,
     eval_dataset: Dataset | None = None,
+    early_stopping_patience: int = 0,
 ) -> GRPOTrainer:
     """Create GRPO trainer with built-in AdamW optimizer."""
 
@@ -119,6 +161,11 @@ def create_grpo_trainer(
 
         return rewards
 
+    callbacks = []
+    if early_stopping_patience > 0:
+        callbacks.append(RewardPlateauCallback(patience=early_stopping_patience))
+        print(f"  Early stopping enabled: patience={early_stopping_patience} logging steps")
+
     trainer = GRPOTrainer(
         model=model,
         args=grpo_config,
@@ -127,6 +174,7 @@ def create_grpo_trainer(
         eval_dataset=eval_dataset,
         processing_class=tokenizer,
         peft_config=peft_config,
+        callbacks=callbacks,
     )
 
     if adapter_type == "lora_xs" and peft_config is not None:
