@@ -90,18 +90,16 @@ class Experiment:
 # share a single v vector → total trainable params = u = 100.
 EXPERIMENTS: list[Experiment] = [
     # TinyLoRA first (cheapest, both models)
-    Experiment("qwen3", "tiny_lora", lora_rank=2, tiny_lora_u=100, tiny_lora_n_tie=1000),
-    Experiment("mistral", "tiny_lora", lora_rank=2, tiny_lora_u=100, tiny_lora_n_tie=1000),
+    # Experiment("qwen3", "tiny_lora", lora_rank=2, tiny_lora_u=100, tiny_lora_n_tie=1000),
+    # Experiment("mistral", "tiny_lora", lora_rank=2, tiny_lora_u=100, tiny_lora_n_tie=1000),
     # LoRA r=1, both models
-    Experiment("qwen3", "lora", lora_rank=1),
     Experiment("mistral", "lora", lora_rank=1),
-    # LoRA r=8, both models
-    Experiment("qwen3", "lora", lora_rank=8),
     Experiment("mistral", "lora", lora_rank=8),
-    # LoRA r=32, both models
-    Experiment("qwen3", "lora", lora_rank=32),
-    Experiment("mistral", "lora", lora_rank=32),
-]
+    Experiment("qwen3", "lora", lora_rank=1),
+    Experiment("qwen3", "lora", lora_rank=8),
+    # Experiment("qwen3", "lora", lora_rank=32),
+    # Experiment("mistral", "lora", lora_rank=32),
+    ]
 
 
 def load_state() -> dict[str, set[str]]:
