@@ -41,6 +41,12 @@ def parse_args():
     # vLLM
     parser.add_argument("--vllm-gpu-memory", type=float, default=0.3, help="vLLM GPU memory utilization (default: 0.3)")
 
+    # Early stopping
+    parser.add_argument(
+        "--early-stopping-patience", type=int, default=15,
+        help="Base patience for early stopping; effective patience = base + lora_rank (0 to disable, default: 15)",
+    )
+
     # Other
     parser.add_argument("--no-wandb", action="store_true", help="Disable wandb")
     parser.add_argument("--wandb-group", type=str, help="Wandb group name (for separating sweep runs)")
@@ -230,6 +236,7 @@ def main():
         tiny_lora_u=config.lora.tiny_lora_u,
         tiny_lora_n_tie=config.lora.tiny_lora_n_tie,
         eval_dataset=eval_dataset,
+        early_stopping_patience=args.early_stopping_patience + config.lora.r if args.early_stopping_patience > 0 else 0,
     )
 
     # Count trainable parameters
