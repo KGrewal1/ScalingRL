@@ -23,8 +23,7 @@ STATE_FILE = Path("sweep_rl_state.json")
 MODEL_FAMILIES = {
     "qwen3": "Qwen/Qwen3-8B",
     "mistral": "mistralai/Mistral-7B-v0.3",
-    "olmo3": "allenai/OLMo-3-1025-7B",
-    "gemma2": "google/gemma-2-9b",
+    "qwen2.5": "Qwen/Qwen2.5-7B",
 }
 
 
@@ -100,10 +99,8 @@ EXPERIMENTS: list[Experiment] = [
     # Experiment("qwen3", "lora", lora_rank=1),
     # Experiment("qwen3", "lora", lora_rank=8),
     # LoRA r=1,8 — new families
-    Experiment("olmo3", "lora", lora_rank=1),
-    Experiment("olmo3", "lora", lora_rank=8),
-    Experiment("gemma2", "lora", lora_rank=1),
-    Experiment("gemma2", "lora", lora_rank=8),
+    Experiment("qwen2.5", "lora", lora_rank=1),
+    Experiment("qwen2.5", "lora", lora_rank=8),
     # Experiment("qwen3", "lora", lora_rank=32),
     # Experiment("mistral", "lora", lora_rank=32),
 ]
