@@ -23,6 +23,8 @@ STATE_FILE = Path("sweep_rl_state.json")
 MODEL_FAMILIES = {
     "qwen3": "Qwen/Qwen3-8B",
     "mistral": "mistralai/Mistral-7B-v0.3",
+    "olmo3": "allenai/OLMo-3-1025-7B",
+    "gemma2": "google/gemma-2-9b",
 }
 
 
@@ -93,13 +95,18 @@ EXPERIMENTS: list[Experiment] = [
     # Experiment("qwen3", "tiny_lora", lora_rank=2, tiny_lora_u=100, tiny_lora_n_tie=1000),
     # Experiment("mistral", "tiny_lora", lora_rank=2, tiny_lora_u=100, tiny_lora_n_tie=1000),
     # LoRA r=1, both models
-    Experiment("mistral", "lora", lora_rank=1),
-    Experiment("mistral", "lora", lora_rank=8),
-    Experiment("qwen3", "lora", lora_rank=1),
-    Experiment("qwen3", "lora", lora_rank=8),
+    # Experiment("mistral", "lora", lora_rank=1),
+    # Experiment("mistral", "lora", lora_rank=8),
+    # Experiment("qwen3", "lora", lora_rank=1),
+    # Experiment("qwen3", "lora", lora_rank=8),
+    # LoRA r=1,8 — new families
+    Experiment("olmo3", "lora", lora_rank=1),
+    Experiment("olmo3", "lora", lora_rank=8),
+    Experiment("gemma2", "lora", lora_rank=1),
+    Experiment("gemma2", "lora", lora_rank=8),
     # Experiment("qwen3", "lora", lora_rank=32),
     # Experiment("mistral", "lora", lora_rank=32),
-    ]
+]
 
 
 def load_state() -> dict[str, set[str]]:
