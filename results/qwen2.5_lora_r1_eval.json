@@ -1,0 +1,7 @@
+{
+  "checkpoint": "outputs/qwen2.5_lora1",
+  "results": {
+    "gsm8k_pass_at_1": 0.2403335860500379,
+    "gsm8k_greedy_accuracy": 0.2403335860500379
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "outputs/qwen2.5_lora1/gsm8k": {
+    "prefix_ratio": 0.6,
+    "rouge_l": 0.417669931689621,
+    "em": 0.00530705079605762,
+    "answer_accuracy": 0.05079605761940864,
+    "num_problems": 1319
+  },
+  "outputs/qwen2.5_lora1/math500": {
+    "prefix_ratio": 0.6,
+    "rouge_l": 0.6014133732553576,
+    "em": 0.182,
+    "answer_accuracy": 0.126,
+    "num_problems": 500
+  }
+}
