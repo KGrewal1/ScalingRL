@@ -9,6 +9,8 @@ Metrics:
   - ROUGE-L: longest-common-subsequence overlap between completion and suffix
   - EM: exact-match rate (completion == suffix after normalization)
   - Answer Accuracy: fraction of completions that contain the correct answer
+  - Verbatim Run: length of longest contiguous matching token sequence
+  - N-gram Verbatim Rate: fraction of n-grams from suffix reproduced exactly
 """
 
 from typing import Any
@@ -52,6 +54,36 @@ def rouge_l_f1(reference: list[int], hypothesis: list[int]) -> float:
     return 2 * precision * recall / (precision + recall)
 
 
+def longest_verbatim_run(x: list, y: list) -> int:
+    """Length of the longest contiguous common token sequence (common substring)."""
+    m, n = len(x), len(y)
+    if m == 0 or n == 0:
+        return 0
+    prev = [0] * (n + 1)
+    curr = [0] * (n + 1)
+    best = 0
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if x[i - 1] == y[j - 1]:
+                curr[j] = prev[j - 1] + 1
+                if curr[j] > best:
+                    best = curr[j]
+            else:
+                curr[j] = 0
+        prev, curr = curr, [0] * (n + 1)
+    return best
+
+
+def ngram_verbatim_rate(reference: list[int], hypothesis: list[int], n: int = 8) -> float:
+    """Fraction of n-grams from reference that appear verbatim in hypothesis."""
+    if len(reference) < n or len(hypothesis) < n:
+        return 0.0
+    hyp_ngrams = {tuple(hypothesis[i : i + n]) for i in range(len(hypothesis) - n + 1)}
+    ref_ngrams = [tuple(reference[i : i + n]) for i in range(len(reference) - n + 1)]
+    hits = sum(1 for ng in ref_ngrams if ng in hyp_ngrams)
+    return hits / len(ref_ngrams)
+
+
 # ---------------------------------------------------------------------------
 # Evaluator
 # ---------------------------------------------------------------------------
@@ -69,9 +101,12 @@ class ContaminationEvaluator(BaseEvaluator):
       3. Compares the generated continuation against the held-out suffix.
     """
 
-    def __init__(self, *args, prefix_ratio: float = 0.6, dataset_name: str = "gsm8k", **kwargs):
+    def __init__(
+        self, *args, prefix_ratio: float = 0.6, dataset_name: str = "gsm8k", verbatim_ngram_size: int = 8, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.prefix_ratio = prefix_ratio
+        self.verbatim_ngram_size = verbatim_ngram_size
         if dataset_name not in SUPPORTED_DATASETS:
             raise ValueError(f"Unknown dataset {dataset_name!r}, must be one of {SUPPORTED_DATASETS}")
         self.dataset_name = dataset_name
@@ -133,6 +168,8 @@ class ContaminationEvaluator(BaseEvaluator):
         rouge_l_scores: list[float] = []
         em_scores: list[float] = []
         answer_hits: list[float] = []
+        verbatim_run_scores: list[int] = []
+        ngram_verbatim_scores: list[float] = []
 
         total_batches = (len(dataset) + self.batch_size - 1) // self.batch_size
 
@@ -178,6 +215,10 @@ class ContaminationEvaluator(BaseEvaluator):
                 # ROUGE-L on token IDs
                 rouge_l_scores.append(rouge_l_f1(suffix_ids, comp_ids_trunc))
 
+                # Verbatim extraction metrics
+                verbatim_run_scores.append(longest_verbatim_run(suffix_ids, comp_ids_trunc))
+                ngram_verbatim_scores.append(ngram_verbatim_rate(suffix_ids, comp_ids_trunc, self.verbatim_ngram_size))
+
                 # Exact match — decode both to strings to avoid BPE
                 # context-sensitivity (leading space, merge order, etc.).
                 comp_text = self.tokenizer.decode(comp_ids_trunc, skip_special_tokens=True).strip()
@@ -196,16 +237,23 @@ class ContaminationEvaluator(BaseEvaluator):
         avg_rouge = sum(rouge_l_scores) / n if n else 0.0
         avg_em = sum(em_scores) / n if n else 0.0
         avg_ans = sum(answer_hits) / n if n else 0.0
+        avg_verbatim_run = sum(verbatim_run_scores) / n if n else 0.0
+        avg_ngram = sum(ngram_verbatim_scores) / n if n else 0.0
 
         print(f"\n  Results (prefix={ratio_pct}%):")
-        print(f"    ROUGE-L:          {avg_rouge:.4f}  ({avg_rouge:.2%})")
-        print(f"    Exact Match:      {avg_em:.4f}  ({avg_em:.2%})")
-        print(f"    Answer Accuracy:  {avg_ans:.4f}  ({avg_ans:.2%})")
+        print(f"    ROUGE-L:              {avg_rouge:.4f}  ({avg_rouge:.2%})")
+        print(f"    Exact Match:          {avg_em:.4f}  ({avg_em:.2%})")
+        print(f"    Answer Accuracy:      {avg_ans:.4f}  ({avg_ans:.2%})")
+        print(f"    Verbatim Run (mean):  {avg_verbatim_run:.1f} tokens")
+        print(f"    {self.verbatim_ngram_size}-gram Verbatim Rate:  {avg_ngram:.4f}  ({avg_ngram:.2%})")
 
         return {
             "prefix_ratio": self.prefix_ratio,
             "rouge_l": avg_rouge,
             "em": avg_em,
             "answer_accuracy": avg_ans,
+            "verbatim_run_mean": avg_verbatim_run,
+            "ngram_verbatim_rate": avg_ngram,
+            "verbatim_ngram_size": self.verbatim_ngram_size,
             "num_problems": n,
         }
